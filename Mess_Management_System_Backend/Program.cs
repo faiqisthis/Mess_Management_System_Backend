@@ -1,16 +1,18 @@
 using Mess_Management_System_Backend.Data;
+using Mess_Management_System_Backend.Models;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add DbContext
+// DbContext already added earlier
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Add MVC
-builder.Services.AddControllersWithViews();
+// register password hasher
+builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 
-// Add CORS for Next.js
+builder.Services.AddControllers(); // API controllers
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowNextJs",
@@ -18,20 +20,13 @@ builder.Services.AddCors(options =>
                         .AllowAnyHeader()
                         .AllowAnyMethod());
 });
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
 
 var app = builder.Build();
 
 app.UseCors("AllowNextJs");
 app.UseHttpsRedirection();
-app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthorization();
-
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
+app.MapControllers();
 
 app.Run();

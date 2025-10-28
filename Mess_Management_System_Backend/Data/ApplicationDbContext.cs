@@ -11,7 +11,7 @@ namespace Mess_Management_System_Backend.Data
         {
         }
 
-        public DbSet<Student> Students { get; set; }
+        public DbSet<User> Users { get; set; }
         // Add more DbSets as needed
     }
 }
