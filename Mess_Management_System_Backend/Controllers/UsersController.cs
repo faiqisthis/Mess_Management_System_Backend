@@ -1,11 +1,7 @@
-﻿using System.Linq;
-using System.Threading.Tasks;
+﻿using Mess_Management_System_Backend.Dtos;
+using Mess_Management_System_Backend.Services;
+using Mess_Management_System_Backend.Utils;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Identity;
-using Mess_Management_System_Backend.Data;
-using Mess_Management_System_Backend.Models;
-using Mess_Management_System_Backend.Dtos;
 
 namespace Mess_Management_System_Backend.Controllers
 {
@@ -13,173 +9,64 @@ namespace Mess_Management_System_Backend.Controllers
     [Route("api/[controller]")]
     public class UsersController : ControllerBase
     {
-        private readonly ApplicationDbContext _db;
-        private readonly IPasswordHasher<User> _passwordHasher;
+        private readonly IUserService _userService;
+        private readonly ILogger<UsersController> _logger;
 
-        public UsersController(ApplicationDbContext db, IPasswordHasher<User> passwordHasher)
+        public UsersController(IUserService userService, ILogger<UsersController> logger)
         {
-            _db = db;
-            _passwordHasher = passwordHasher;
+            _userService = userService;
+            _logger = logger;
         }
 
-        // GET: api/users
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<UserDto>>> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 50)
-        {
-            page = Math.Max(1, page);
-            pageSize = Math.Clamp(pageSize, 1, 200);
-
-            var users = await _db.Users
-                                .Where(u => u.IsActive) // default filter
-                                .OrderBy(u => u.Id)
-                                .Skip((page - 1) * pageSize)
-                                .Take(pageSize)
-                                .Select(u => new UserDto
-                                {
-                                    Id = u.Id,
-                                    FirstName = u.FirstName,
-                                    LastName = u.LastName,
-                                    Email = u.Email,
-                                    Role = u.Role.ToString(),
-                                    IsActive = u.IsActive,
-                                    CreatedAt = u.CreatedAt
-                                })
-                                .ToListAsync();
-
-            return Ok(users);
-        }
-
-        // GET: api/users/5
-        [HttpGet("{id:int}")]
-        public async Task<ActionResult<UserDto>> GetById(int id)
-        {
-            var u = await _db.Users.FindAsync(id);
-            if (u == null || !u.IsActive) return NotFound();
-
-            var dto = new UserDto
-            {
-                Id = u.Id,
-                FirstName = u.FirstName,
-                LastName = u.LastName,
-                Email = u.Email,
-                Role = u.Role.ToString(),
-                IsActive = u.IsActive,
-                CreatedAt = u.CreatedAt
-            };
-            return Ok(dto);
-        }
-
-        // POST: api/users  (Register)
         [HttpPost]
-        public async Task<ActionResult<UserDto>> Create([FromBody] CreateUserDto input)
+        public async Task<IActionResult> Create([FromBody] CreateUserDto dto)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResponse<string>.Fail("Invalid input data"));
 
-            var emailLower = input.Email.Trim().ToLowerInvariant();
-            if (await _db.Users.AnyAsync(x => x.Email.ToLower() == emailLower))
-                return Conflict(new { message = "Email already in use." });
-
-            // Map to entity
-            var user = new User
-            {
-                FirstName = input.FirstName.Trim(),
-                LastName = input.LastName.Trim(),
-                Email = emailLower,
-                Role = Enum.TryParse<UserRole>(input.Role, true, out var r) ? r : UserRole.Student,
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            // Hash password
-            user.PasswordHash = _passwordHasher.HashPassword(user, input.Password);
-
-            _db.Users.Add(user);
-            await _db.SaveChangesAsync();
-
-            var dto = new UserDto
-            {
-                Id = user.Id,
-                FirstName = user.FirstName,
-                LastName = user.LastName,
-                Email = user.Email,
-                Role = user.Role.ToString(),
-                IsActive = user.IsActive,
-                CreatedAt = user.CreatedAt
-            };
-
-            return CreatedAtAction(nameof(GetById), new { id = user.Id }, dto);
+            var user = await _userService.CreateUserAsync(dto);
+            return CreatedAtAction(nameof(GetById), new { id = user.Id },
+                ApiResponse<UserDto>.Ok(user, "User created successfully"));
         }
 
-        // PUT: api/users/5
+        [HttpGet]
+        public async Task<IActionResult> GetAll()
+        {
+            var users = await _userService.GetAllUsersAsync();
+            return Ok(ApiResponse<IEnumerable<UserDto>>.Ok(users, "Fetched all users successfully"));
+        }
+
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> GetById(int id)
+        {
+            var user = await _userService.GetUserByIdAsync(id);
+            if (user == null)
+                return NotFound(ApiResponse<string>.Fail($"User with ID {id} not found"));
+
+            return Ok(ApiResponse<UserDto>.Ok(user, "Fetched user successfully"));
+        }
+
         [HttpPut("{id:int}")]
-        public async Task<IActionResult> Update(int id, [FromBody] UpdateUserDto input)
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateUserDto dto)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!ModelState.IsValid)
+                return BadRequest(ApiResponse<string>.Fail("Invalid input data"));
 
-            var user = await _db.Users.FindAsync(id);
-            if (user == null || !user.IsActive) return NotFound();
+            var updatedUser = await _userService.UpdateUserAsync(id, dto);
+            if (updatedUser == null)
+                return NotFound(ApiResponse<string>.Fail($"User with ID {id} not found"));
 
-            user.FirstName = input.FirstName.Trim();
-            user.LastName = input.LastName.Trim();
-
-            if (!string.IsNullOrWhiteSpace(input.Email))
-            {
-                var newEmail = input.Email.Trim().ToLowerInvariant();
-                if (await _db.Users.AnyAsync(u => u.Id != id && u.Email.ToLower() == newEmail))
-                    return Conflict(new { message = "Email already in use." });
-
-                user.Email = newEmail;
-            }
-
-            if (!string.IsNullOrWhiteSpace(input.Role))
-            {
-                if (Enum.TryParse<UserRole>(input.Role, true, out var parsedRole))
-                    user.Role = parsedRole;
-            }
-
-            if (input.IsActive.HasValue)
-                user.IsActive = input.IsActive.Value;
-
-            _db.Users.Update(user);
-            await _db.SaveChangesAsync();
-
-            return NoContent();
+            return Ok(ApiResponse<UserDto>.Ok(updatedUser, "User updated successfully"));
         }
 
-        // DELETE: api/users/5  (soft delete)
         [HttpDelete("{id:int}")]
-        public async Task<IActionResult> SoftDelete(int id)
+        public async Task<IActionResult> Delete(int id)
         {
-            var user = await _db.Users.FindAsync(id);
-            if (user == null) return NotFound();
+            var result = await _userService.DeleteUserAsync(id);
+            if (!result)
+                return NotFound(ApiResponse<string>.Fail($"User with ID {id} not found"));
 
-            user.IsActive = false;
-            _db.Users.Update(user);
-            await _db.SaveChangesAsync();
-            return NoContent();
-        }
-
-        // POST: api/users/authenticate  (very basic - later replace with JWT)
-        [HttpPost("authenticate")]
-        public async Task<ActionResult<AuthResponseDto>> Authenticate([FromBody] AuthRequestDto request)
-        {
-            var emailLower = request.Email.Trim().ToLowerInvariant();
-            var user = await _db.Users.SingleOrDefaultAsync(u => u.Email.ToLower() == emailLower && u.IsActive);
-            if (user == null) return Unauthorized();
-
-            var verify = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
-            if (verify == PasswordVerificationResult.Success)
-            {
-                var resp = new AuthResponseDto
-                {
-                    UserId = user.Id,
-                    Email = user.Email,
-                    Role = user.Role.ToString()
-                };
-                return Ok(resp);
-            }
-
-            return Unauthorized();
+            return Ok(ApiResponse<string>.Ok(null, "User deleted successfully"));
         }
     }
 }

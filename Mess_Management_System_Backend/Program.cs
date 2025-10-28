@@ -1,11 +1,12 @@
+using FluentValidation.AspNetCore;
 using Mess_Management_System_Backend.Data;
-using Mess_Management_System_Backend.Models;
 using Mess_Management_System_Backend.Mappings;
 using Mess_Management_System_Backend.Middleware;
+using Mess_Management_System_Backend.Models;
+using Mess_Management_System_Backend.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
-using FluentValidation.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,6 +42,10 @@ builder.Services.AddControllers()
 // AutoMapper
 // -------------------------------
 builder.Services.AddAutoMapper(typeof(AutoMapperProfile));
+
+
+//UserService
+builder.Services.AddScoped<IUserService, UserService>();
 
 // -------------------------------
 // CORS (for Next.js frontend)
