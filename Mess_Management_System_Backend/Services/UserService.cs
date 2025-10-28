@@ -4,6 +4,7 @@ using Mess_Management_System_Backend.Dtos;
 using Mess_Management_System_Backend.Models;
 using Microsoft.EntityFrameworkCore;
 using System;
+using Microsoft.AspNetCore.Identity;
 
 namespace Mess_Management_System_Backend.Services
 {
@@ -12,12 +13,15 @@ namespace Mess_Management_System_Backend.Services
         private readonly ApplicationDbContext _context;
         private readonly IMapper _mapper;
         private readonly ILogger<UserService> _logger;
+        private readonly IJwtService _jwtService;
+        private readonly IPasswordHasher<User> _passwordHasher;
 
-        public UserService(ApplicationDbContext context, IMapper mapper, ILogger<UserService> logger)
+        public UserService(ApplicationDbContext context, IPasswordHasher<User> passwordHasher, IMapper mapper, IJwtService jwtService)
         {
             _context = context;
+            _passwordHasher = passwordHasher;
             _mapper = mapper;
-            _logger = logger;
+            _jwtService = jwtService;
         }
 
         public async Task<UserDto> CreateUserAsync(CreateUserDto dto)
@@ -67,6 +71,29 @@ namespace Mess_Management_System_Backend.Services
 
             _logger.LogInformation("Deleted user {Id}", id);
             return true;
+        }
+
+        public async Task<AuthResponseDto?> AuthenticateAsync(AuthRequestDto dto)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
+    
+            if (user == null || !user.IsActive)
+                return null;
+
+            var result = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, dto.Password);
+    
+            if (result == PasswordVerificationResult.Failed)
+                return null;
+
+            var token = _jwtService.GenerateToken(user);
+
+            return new AuthResponseDto
+            {
+                UserId = user.Id,
+                Email = user.Email,
+                Role = user.Role.ToString(),
+                Token = token
+            };
         }
     }
 }

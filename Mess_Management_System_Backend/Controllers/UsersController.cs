@@ -1,6 +1,7 @@
 ﻿using Mess_Management_System_Backend.Dtos;
 using Mess_Management_System_Backend.Services;
 using Mess_Management_System_Backend.Utils;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Mess_Management_System_Backend.Controllers
@@ -30,6 +31,7 @@ namespace Mess_Management_System_Backend.Controllers
         }
 
         [HttpGet]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetAll()
         {
             var users = await _userService.GetAllUsersAsync();

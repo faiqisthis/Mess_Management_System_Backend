@@ -7,6 +7,9 @@ using Mess_Management_System_Backend.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,6 +34,32 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // Dependency Injection
 // -------------------------------
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<IUserService, UserService>();
+
+// -------------------------------
+// JWT Authentication
+// -------------------------------
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+    };
+});
+
+builder.Services.AddAuthorization();
 
 // -------------------------------
 // Controllers + FluentValidation
@@ -42,10 +71,6 @@ builder.Services.AddControllers()
 // AutoMapper
 // -------------------------------
 builder.Services.AddAutoMapper(typeof(AutoMapperProfile));
-
-
-//UserService
-builder.Services.AddScoped<IUserService, UserService>();
 
 // -------------------------------
 // CORS (for Next.js frontend)
@@ -72,6 +97,9 @@ app.UseSerilogRequestLogging();  // logs all HTTP requests
 
 app.UseHttpsRedirection();
 app.UseCors("AllowNextJs");
+
+
+app.UseAuthentication(); // Add this BEFORE UseAuthorization
 app.UseAuthorization();
 
 app.MapControllers();
