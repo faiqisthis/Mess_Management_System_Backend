@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Mess_Management_System_Backend.Models;
 
 namespace Mess_Management_System_Backend.Dtos
 {
@@ -17,6 +18,11 @@ namespace Mess_Management_System_Backend.Dtos
         public string Password { get; set; } = string.Empty;
 
         [Required]
-        public string Role { get; set; } = "Student";
+        public UserRole Role { get; set; } = UserRole.Student;
+        
+        // Optional mess management fields (mainly for Students)
+        public string? RollNumber { get; set; }
+        public string? RoomNumber { get; set; }
+        public string? ContactNumber { get; set; }
     }
 }

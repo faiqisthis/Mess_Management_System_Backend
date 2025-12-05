@@ -1,107 +1,65 @@
-using FluentValidation.AspNetCore;
 using Mess_Management_System_Backend.Data;
-using Mess_Management_System_Backend.Mappings;
-using Mess_Management_System_Backend.Middleware;
 using Mess_Management_System_Backend.Models;
 using Mess_Management_System_Backend.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Serilog;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// -------------------------------
-// Logging (Serilog)
-// -------------------------------
-Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
-    .WriteTo.File("Logs/log-.txt", rollingInterval: RollingInterval.Day)
-    .Enrich.FromLogContext()
-    .CreateLogger();
-
-builder.Host.UseSerilog();
-
-// -------------------------------
-// Database Context (SQL Server)
-// -------------------------------
+// Database
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// -------------------------------
-// Dependency Injection
-// -------------------------------
+// Services
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IUserService, UserService>();
 
-// -------------------------------
 // JWT Authentication
-// -------------------------------
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
     {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["Jwt:Issuer"],
-        ValidAudience = builder.Configuration["Jwt:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
-    };
-});
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+        };
+    });
 
 builder.Services.AddAuthorization();
+builder.Services.AddControllers();
 
-// -------------------------------
-// Controllers + FluentValidation
-// -------------------------------
-builder.Services.AddControllers()
-    .AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<Program>());
-
-// -------------------------------
-// AutoMapper
-// -------------------------------
-builder.Services.AddAutoMapper(typeof(AutoMapperProfile));
-
-// -------------------------------
-// CORS (for Next.js frontend)
-// -------------------------------
+// CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowNextJs",
+    options.AddPolicy("AllowFrontend",
         policy => policy
-            .WithOrigins("http://localhost:3000") // adjust when deployed
+            .WithOrigins("http://localhost:3000")
             .AllowAnyHeader()
             .AllowAnyMethod());
 });
 
-// -------------------------------
-// Build App
-// -------------------------------
 var app = builder.Build();
 
-// -------------------------------
-// Middleware Pipeline
-// -------------------------------
-app.UseGlobalExceptionHandler(); // custom middleware
-app.UseSerilogRequestLogging();  // logs all HTTP requests
+// Middleware
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+}
 
 app.UseHttpsRedirection();
-app.UseCors("AllowNextJs");
-
-
-app.UseAuthentication(); // Add this BEFORE UseAuthorization
+app.UseCors("AllowFrontend");
+app.UseAuthentication();
 app.UseAuthorization();
-
 app.MapControllers();
 
 app.Run();

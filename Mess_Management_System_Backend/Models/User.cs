@@ -1,4 +1,6 @@
-﻿namespace Mess_Management_System_Backend.Models
+﻿using Mess_Management_System_Backend.Data;
+
+namespace Mess_Management_System_Backend.Models
 {
     public enum UserRole
     {
@@ -17,5 +19,10 @@
         public UserRole Role { get; set; } = UserRole.Student;
         public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        
+        // Mess management fields (only applicable for Students)
+        public string? RollNumber { get; set; }
+        public string? RoomNumber { get; set; }
+        public string? ContactNumber { get; set; }
     }
 }

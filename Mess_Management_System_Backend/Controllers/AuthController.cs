@@ -1,6 +1,5 @@
 using Mess_Management_System_Backend.Dtos;
 using Mess_Management_System_Backend.Services;
-using Mess_Management_System_Backend.Utils;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Mess_Management_System_Backend.Controllers
@@ -17,14 +16,33 @@ namespace Mess_Management_System_Backend.Controllers
         }
 
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] AuthRequestDto dto)
+        public IActionResult Login([FromBody] AuthRequestDto dto)
         {
-            var result = await _userService.AuthenticateAsync(dto);
+            var result = _userService.Authenticate(dto);
 
             if (result == null)
-                return Unauthorized(ApiResponse<object>.Fail("Invalid email or password"));
+                return Unauthorized(new { message = "Invalid email or password" });
 
-            return Ok(ApiResponse<AuthResponseDto>.Ok(result, "Login successful"));
+            return Ok(result);
+        }
+
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] CreateUserDto dto)
+        {
+            try
+            {
+                var user = await _userService.CreateUserAsync(dto);
+                return CreatedAtAction(
+                    nameof(UsersController.GetById),
+                    "Users",
+                    new { id = user.Id },
+                    user
+                );
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
     }
 }

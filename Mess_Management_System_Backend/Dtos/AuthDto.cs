@@ -2,7 +2,9 @@
 {
     public class AuthRequestDto
     {
+        required
         public string Email { get; set; } = string.Empty;
+        required
         public string Password { get; set; } = string.Empty;
     }
 

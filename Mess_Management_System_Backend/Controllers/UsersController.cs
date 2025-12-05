@@ -1,6 +1,5 @@
 ﻿using Mess_Management_System_Backend.Dtos;
 using Mess_Management_System_Backend.Services;
-using Mess_Management_System_Backend.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,23 +10,24 @@ namespace Mess_Management_System_Backend.Controllers
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;
-        private readonly ILogger<UsersController> _logger;
 
-        public UsersController(IUserService userService, ILogger<UsersController> logger)
+        public UsersController(IUserService userService)
         {
             _userService = userService;
-            _logger = logger;
         }
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreateUserDto dto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ApiResponse<string>.Fail("Invalid input data"));
-
-            var user = await _userService.CreateUserAsync(dto);
-            return CreatedAtAction(nameof(GetById), new { id = user.Id },
-                ApiResponse<UserDto>.Ok(user, "User created successfully"));
+            try
+            {
+                var user = await _userService.CreateUserAsync(dto);
+                return CreatedAtAction(nameof(GetById), new { id = user.Id }, user);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         [HttpGet]
@@ -35,7 +35,7 @@ namespace Mess_Management_System_Backend.Controllers
         public async Task<IActionResult> GetAll()
         {
             var users = await _userService.GetAllUsersAsync();
-            return Ok(ApiResponse<IEnumerable<UserDto>>.Ok(users, "Fetched all users successfully"));
+            return Ok(users);
         }
 
         [HttpGet("{id:int}")]
@@ -43,22 +43,19 @@ namespace Mess_Management_System_Backend.Controllers
         {
             var user = await _userService.GetUserByIdAsync(id);
             if (user == null)
-                return NotFound(ApiResponse<string>.Fail($"User with ID {id} not found"));
+                return NotFound(new { message = $"User with ID {id} not found" });
 
-            return Ok(ApiResponse<UserDto>.Ok(user, "Fetched user successfully"));
+            return Ok(user);
         }
 
         [HttpPut("{id:int}")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateUserDto dto)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ApiResponse<string>.Fail("Invalid input data"));
-
             var updatedUser = await _userService.UpdateUserAsync(id, dto);
             if (updatedUser == null)
-                return NotFound(ApiResponse<string>.Fail($"User with ID {id} not found"));
+                return NotFound(new { message = $"User with ID {id} not found" });
 
-            return Ok(ApiResponse<UserDto>.Ok(updatedUser, "User updated successfully"));
+            return Ok(updatedUser);
         }
 
         [HttpDelete("{id:int}")]
@@ -66,9 +63,9 @@ namespace Mess_Management_System_Backend.Controllers
         {
             var result = await _userService.DeleteUserAsync(id);
             if (!result)
-                return NotFound(ApiResponse<string>.Fail($"User with ID {id} not found"));
+                return NotFound(new { message = $"User with ID {id} not found" });
 
-            return Ok(ApiResponse<string>.Ok(null, "User deleted successfully"));
+            return NoContent();
         }
     }
 }
