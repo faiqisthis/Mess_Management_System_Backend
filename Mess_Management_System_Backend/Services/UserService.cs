@@ -1,5 +1,4 @@
 ﻿using Mess_Management_System_Backend.Data;
-using Mess_Management_System_Backend.Dtos;
 using Mess_Management_System_Backend.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
@@ -22,85 +21,94 @@ namespace Mess_Management_System_Backend.Services
             _jwtService = jwtService;
         }
 
-        public async Task<UserDto> CreateUserAsync(CreateUserDto dto)
+        public async Task<User> CreateUserAsync(User user)
         {
-            var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
+            var normalizedEmail = user.Email.Trim().ToLowerInvariant();
 
             if (await _context.Users.AnyAsync(u => u.Email == normalizedEmail))
                 throw new InvalidOperationException("Email already exists.");
 
             // Check if RollNumber is unique (if provided)
-            if (!string.IsNullOrWhiteSpace(dto.RollNumber))
+            if (!string.IsNullOrWhiteSpace(user.RollNumber))
             {
-                if (await _context.Users.AnyAsync(u => u.RollNumber == dto.RollNumber.Trim()))
+                if (await _context.Users.AnyAsync(u => u.RollNumber == user.RollNumber.Trim()))
                     throw new InvalidOperationException("Roll number already exists.");
             }
 
-            var user = new User
+            if (string.IsNullOrWhiteSpace(user.Password))
+                throw new InvalidOperationException("Password is required.");
+
+            var newUser = new User
             {
-                FirstName = dto.FirstName.Trim(),
-                LastName = dto.LastName.Trim(),
+                FirstName = user.FirstName.Trim(),
+                LastName = user.LastName.Trim(),
                 Email = normalizedEmail,
-                Role = dto.Role,
+                Role = user.Role,
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
-                RollNumber = dto.RollNumber?.Trim(),
-                RoomNumber = dto.RoomNumber?.Trim(),
-                ContactNumber = dto.ContactNumber?.Trim()
+                RollNumber = user.RollNumber?.Trim(),
+                RoomNumber = user.RoomNumber?.Trim(),
+                ContactNumber = user.ContactNumber?.Trim()
             };
 
-            user.PasswordHash = _passwordHasher.HashPassword(user, dto.Password);
+            newUser.PasswordHash = _passwordHasher.HashPassword(newUser, user.Password);
 
-            _context.Users.Add(user);
+            _context.Users.Add(newUser);
             await _context.SaveChangesAsync();
 
-            return MapToDto(user);
+            return newUser;
         }
 
-        public async Task<IEnumerable<UserDto>> GetAllUsersAsync()
+        public async Task<IEnumerable<User>> GetAllUsersAsync()
         {
-            var users = await _context.Users.ToListAsync();
-            return users.Select(MapToDto);
+            return await _context.Users.ToListAsync();
         }
 
-        public async Task<UserDto?> GetUserByIdAsync(int id)
+        public async Task<User?> GetUserByIdAsync(int id)
         {
-            var user = await _context.Users.FindAsync(id);
-            return user == null ? null : MapToDto(user);
+            return await _context.Users.FindAsync(id);
         }
 
-        public async Task<UserDto?> UpdateUserAsync(int id, UpdateUserDto dto)
+        public async Task<User?> UpdateUserAsync(int id, User updateData)
         {
             var user = await _context.Users.FindAsync(id);
             if (user == null) return null;
 
-            if (dto.FirstName != null)
-                user.FirstName = dto.FirstName.Trim();
+            // Only update fields that are provided (not null or empty)
+            if (!string.IsNullOrWhiteSpace(updateData.FirstName))
+                user.FirstName = updateData.FirstName.Trim();
 
-            if (dto.LastName != null)
-                user.LastName = dto.LastName.Trim();
+            if (!string.IsNullOrWhiteSpace(updateData.LastName))
+                user.LastName = updateData.LastName.Trim();
 
-            if (!string.IsNullOrWhiteSpace(dto.Email))
-                user.Email = dto.Email.Trim().ToLowerInvariant();
+            if (!string.IsNullOrWhiteSpace(updateData.Email))
+                user.Email = updateData.Email.Trim().ToLowerInvariant();
             
-            if (dto.Role.HasValue)
-                user.Role = dto.Role.Value;
+            // Update role if different
+            if (updateData.Role != default(UserRole))
+                user.Role = updateData.Role;
             
-            if (dto.IsActive.HasValue)
-                user.IsActive = dto.IsActive.Value;
+            // Update IsActive - we need to check if it's explicitly set
+            user.IsActive = updateData.IsActive;
             
             // Update mess management fields
-            if (dto.RollNumber != null)
-                user.RollNumber = dto.RollNumber.Trim();
+            if (updateData.RollNumber != null)
+                user.RollNumber = updateData.RollNumber.Trim();
             
-            if (dto.RoomNumber != null)
-                user.RoomNumber = dto.RoomNumber.Trim();
+            if (updateData.RoomNumber != null)
+                user.RoomNumber = updateData.RoomNumber.Trim();
             
-            if (dto.ContactNumber != null)
-                user.ContactNumber = dto.ContactNumber.Trim();
+            if (updateData.ContactNumber != null)
+                user.ContactNumber = updateData.ContactNumber.Trim();
+
+            // Handle password update if provided
+            if (!string.IsNullOrWhiteSpace(updateData.Password))
+            {
+                user.PasswordHash = _passwordHasher.HashPassword(user, updateData.Password);
+            }
 
             await _context.SaveChangesAsync();
-            return MapToDto(user);
+            return user;
         }
 
         public async Task<bool> DeleteUserAsync(int id)
@@ -113,9 +121,9 @@ namespace Mess_Management_System_Backend.Services
             return true;
         }
 
-        public AuthResponseDto? Authenticate(AuthRequestDto dto)
+        public AuthResponse? Authenticate(LoginRequest request)
         {
-            var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
+            var normalizedEmail = request.Email.Trim().ToLowerInvariant();
 
             var user = _context.Users
                 .FirstOrDefault(u => u.Email == normalizedEmail);
@@ -123,14 +131,14 @@ namespace Mess_Management_System_Backend.Services
             if (user == null || !user.IsActive)
                 return null;
 
-            var verification = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, dto.Password);
+            var verification = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
 
             if (verification == PasswordVerificationResult.Failed)
                 return null;
 
             var token = _jwtService.GenerateToken(user);
 
-            return new AuthResponseDto
+            return new AuthResponse
             {
                 UserId = user.Id,
                 Email = user.Email,
@@ -138,19 +146,5 @@ namespace Mess_Management_System_Backend.Services
                 Token = token
             };
         }
-
-        private static UserDto MapToDto(User user) => new()
-        {
-            Id = user.Id,
-            FirstName = user.FirstName,
-            LastName = user.LastName,
-            Email = user.Email,
-            Role = user.Role,
-            IsActive = user.IsActive,
-            CreatedAt = user.CreatedAt,
-            RollNumber = user.RollNumber,
-            RoomNumber = user.RoomNumber,
-            ContactNumber = user.ContactNumber
-        };
     }
 }

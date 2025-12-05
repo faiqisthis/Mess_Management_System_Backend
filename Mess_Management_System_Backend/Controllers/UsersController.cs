@@ -1,4 +1,4 @@
-﻿using Mess_Management_System_Backend.Dtos;
+﻿using Mess_Management_System_Backend.Models;
 using Mess_Management_System_Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -17,12 +17,12 @@ namespace Mess_Management_System_Backend.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] CreateUserDto dto)
+        public async Task<IActionResult> Create([FromBody] User user)
         {
             try
             {
-                var user = await _userService.CreateUserAsync(dto);
-                return CreatedAtAction(nameof(GetById), new { id = user.Id }, user);
+                var createdUser = await _userService.CreateUserAsync(user);
+                return CreatedAtAction(nameof(GetById), new { id = createdUser.Id }, createdUser);
             }
             catch (InvalidOperationException ex)
             {
@@ -49,9 +49,9 @@ namespace Mess_Management_System_Backend.Controllers
         }
 
         [HttpPut("{id:int}")]
-        public async Task<IActionResult> Update(int id, [FromBody] UpdateUserDto dto)
+        public async Task<IActionResult> Update(int id, [FromBody] User user)
         {
-            var updatedUser = await _userService.UpdateUserAsync(id, dto);
+            var updatedUser = await _userService.UpdateUserAsync(id, user);
             if (updatedUser == null)
                 return NotFound(new { message = $"User with ID {id} not found" });
 
