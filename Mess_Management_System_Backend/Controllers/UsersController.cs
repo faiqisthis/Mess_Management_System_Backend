@@ -2,6 +2,7 @@
 using Mess_Management_System_Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Mess_Management_System_Backend.Controllers
 {
@@ -17,6 +18,7 @@ namespace Mess_Management_System_Backend.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create([FromBody] User user)
         {
             try
@@ -39,6 +41,7 @@ namespace Mess_Management_System_Backend.Controllers
         }
 
         [HttpGet("{id:int}")]
+        [Authorize] // Middleware will validate ownership
         public async Task<IActionResult> GetById(int id)
         {
             var user = await _userService.GetUserByIdAsync(id);
@@ -49,6 +52,7 @@ namespace Mess_Management_System_Backend.Controllers
         }
 
         [HttpPut("{id:int}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update(int id, [FromBody] User user)
         {
             var updatedUser = await _userService.UpdateUserAsync(id, user);
@@ -58,7 +62,20 @@ namespace Mess_Management_System_Backend.Controllers
             return Ok(updatedUser);
         }
 
+        [HttpPost("{id:int}/change-password")]
+        [Authorize] // Middleware will validate ownership
+        public async Task<IActionResult> ChangePassword(int id, [FromBody] ChangePasswordRequest request)
+        {
+            var result = await _userService.ChangePasswordAsync(id, request);
+            
+            if (!result)
+                return BadRequest(new { message = "Current password is incorrect or user not found" });
+
+            return Ok(new { message = "Password changed successfully" });
+        }
+
         [HttpDelete("{id:int}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
             var result = await _userService.DeleteUserAsync(id);

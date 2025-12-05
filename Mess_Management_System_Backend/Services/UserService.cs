@@ -1,7 +1,8 @@
 ﻿using Mess_Management_System_Backend.Data;
 using Mess_Management_System_Backend.Models;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace Mess_Management_System_Backend.Services
 {
@@ -20,7 +21,7 @@ namespace Mess_Management_System_Backend.Services
             _passwordHasher = passwordHasher;
             _jwtService = jwtService;
         }
-
+     
         public async Task<User> CreateUserAsync(User user)
         {
             var normalizedEmail = user.Email.Trim().ToLowerInvariant();
@@ -88,7 +89,7 @@ namespace Mess_Management_System_Backend.Services
             if (updateData.Role != default(UserRole))
                 user.Role = updateData.Role;
             
-            // Update IsActive - we need to check if it's explicitly set
+            // Update IsActive
             user.IsActive = updateData.IsActive;
             
             // Update mess management fields
@@ -101,14 +102,32 @@ namespace Mess_Management_System_Backend.Services
             if (updateData.ContactNumber != null)
                 user.ContactNumber = updateData.ContactNumber.Trim();
 
-            // Handle password update if provided
-            if (!string.IsNullOrWhiteSpace(updateData.Password))
-            {
-                user.PasswordHash = _passwordHasher.HashPassword(user, updateData.Password);
-            }
+            // Password changes are NOT handled here - use ChangePasswordAsync instead
 
             await _context.SaveChangesAsync();
             return user;
+        }
+
+        public async Task<bool> ChangePasswordAsync(int userId, ChangePasswordRequest request)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return false;
+
+            // Verify current password
+            var verification = _passwordHasher.VerifyHashedPassword(
+                user, 
+                user.PasswordHash, 
+                request.CurrentPassword
+            );
+
+            if (verification == PasswordVerificationResult.Failed)
+                return false; // Current password is incorrect
+
+            // Hash and save new password
+            user.PasswordHash = _passwordHasher.HashPassword(user, request.NewPassword);
+            await _context.SaveChangesAsync();
+
+            return true;
         }
 
         public async Task<bool> DeleteUserAsync(int id)

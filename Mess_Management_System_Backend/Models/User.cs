@@ -64,4 +64,14 @@ namespace Mess_Management_System_Backend.Models
         public string Role { get; set; } = string.Empty;
         public string Token { get; set; } = string.Empty;
     }
+    
+    // Password change request
+    public class ChangePasswordRequest
+    {
+        [Required]
+        public string CurrentPassword { get; set; } = string.Empty;
+        
+        [Required, MinLength(8)]
+        public string NewPassword { get; set; } = string.Empty;
+    }
 }

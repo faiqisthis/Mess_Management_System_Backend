@@ -25,24 +25,5 @@ namespace Mess_Management_System_Backend.Controllers
 
             return Ok(result);
         }
-
-        [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] User user)
-        {
-            try
-            {
-                var createdUser = await _userService.CreateUserAsync(user);
-                return CreatedAtAction(
-                    nameof(UsersController.GetById),
-                    "Users",
-                    new { id = createdUser.Id },
-                    createdUser
-                );
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
     }
 }

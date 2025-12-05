@@ -9,6 +9,7 @@ namespace Mess_Management_System_Backend.Services
         Task<User?> GetUserByIdAsync(int id);
         Task<User?> UpdateUserAsync(int id, User user);
         Task<bool> DeleteUserAsync(int id);
+        Task<bool> ChangePasswordAsync(int userId, ChangePasswordRequest request);
         AuthResponse? Authenticate(LoginRequest request);
     }
 }

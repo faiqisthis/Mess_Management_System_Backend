@@ -1,4 +1,5 @@
 using Mess_Management_System_Backend.Data;
+using Mess_Management_System_Backend.Middleware;
 using Mess_Management_System_Backend.Models;
 using Mess_Management_System_Backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -60,6 +61,7 @@ app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseUserOwnershipValidation();
 app.MapControllers();
 
 app.Run();
