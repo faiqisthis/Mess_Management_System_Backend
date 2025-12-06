@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Mess_Management_System_Backend.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20251205153418_AddMessManagementFeaturesWithImprovedDesign")]
-    partial class AddMessManagementFeaturesWithImprovedDesign
+    [Migration("20251206134637_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

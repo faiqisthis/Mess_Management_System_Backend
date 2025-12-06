@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Mess_Management_System_Backend.Migrations
 {
     /// <inheritdoc />
-    public partial class AddMessManagementFeaturesWithImprovedDesign : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

@@ -30,20 +30,14 @@ namespace Mess_Management_System_Backend.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<bool>("AttendedBreakfast")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("AttendedDinner")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("AttendedLunch")
-                        .HasColumnType("bit");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<DateTime>("Date")
                         .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
