@@ -24,6 +24,16 @@ namespace Mess_Management_System_Backend.Services
      
         public async Task<User> CreateUserAsync(User user)
         {
+            // Validate required fields
+            if (string.IsNullOrWhiteSpace(user.FirstName))
+                throw new InvalidOperationException("First name is required.");
+            
+            if (string.IsNullOrWhiteSpace(user.LastName))
+                throw new InvalidOperationException("Last name is required.");
+            
+            if (string.IsNullOrWhiteSpace(user.Email))
+                throw new InvalidOperationException("Email is required.");
+
             var normalizedEmail = user.Email.Trim().ToLowerInvariant();
 
             if (await _context.Users.AnyAsync(u => u.Email == normalizedEmail))
@@ -44,8 +54,8 @@ namespace Mess_Management_System_Backend.Services
                 FirstName = user.FirstName.Trim(),
                 LastName = user.LastName.Trim(),
                 Email = normalizedEmail,
-                Role = user.Role,
-                IsActive = true,
+                Role = user.Role ?? UserRole.Student,
+                IsActive = user.IsActive ?? true,
                 CreatedAt = DateTime.UtcNow,
                 RollNumber = user.RollNumber?.Trim(),
                 RoomNumber = user.RoomNumber?.Trim(),
@@ -85,22 +95,23 @@ namespace Mess_Management_System_Backend.Services
             if (!string.IsNullOrWhiteSpace(updateData.Email))
                 user.Email = updateData.Email.Trim().ToLowerInvariant();
             
-            // Update role if different
-            if (updateData.Role != default(UserRole))
-                user.Role = updateData.Role;
+            // Update role if provided
+            if (updateData.Role.HasValue)
+                user.Role = updateData.Role.Value;
             
-            // Update IsActive
-            user.IsActive = updateData.IsActive;
+            // Update IsActive if provided
+            if (updateData.IsActive.HasValue)
+                user.IsActive = updateData.IsActive.Value;
             
-            // Update mess management fields
+            // Update mess management fields (allow null to clear values)
             if (updateData.RollNumber != null)
-                user.RollNumber = updateData.RollNumber.Trim();
+                user.RollNumber = string.IsNullOrWhiteSpace(updateData.RollNumber) ? null : updateData.RollNumber.Trim();
             
             if (updateData.RoomNumber != null)
-                user.RoomNumber = updateData.RoomNumber.Trim();
+                user.RoomNumber = string.IsNullOrWhiteSpace(updateData.RoomNumber) ? null : updateData.RoomNumber.Trim();
             
             if (updateData.ContactNumber != null)
-                user.ContactNumber = updateData.ContactNumber.Trim();
+                user.ContactNumber = string.IsNullOrWhiteSpace(updateData.ContactNumber) ? null : updateData.ContactNumber.Trim();
 
             // Password changes are NOT handled here - use ChangePasswordAsync instead
 
@@ -147,7 +158,7 @@ namespace Mess_Management_System_Backend.Services
             var user = _context.Users
                 .FirstOrDefault(u => u.Email == normalizedEmail);
 
-            if (user == null || !user.IsActive)
+            if (user == null || user.IsActive == false)
                 return null;
 
             var verification = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
@@ -160,8 +171,8 @@ namespace Mess_Management_System_Backend.Services
             return new AuthResponse
             {
                 UserId = user.Id,
-                Email = user.Email,
-                Role = user.Role.ToString(),
+                Email = user.Email ?? string.Empty,
+                Role = user.Role?.ToString() ?? "Student",
                 Token = token
             };
         }

@@ -195,12 +195,33 @@ namespace Mess_Management_System_Backend.Services
             decimal estimatedFixedCharges = 0;
             decimal estimatedFoodCharges = 0;
 
-            if (includeMenuDetails)
+            // Calculate charges if summary is requested
+            if (includeSummary || includeMenuDetails)
             {
+                // Get menus if not already loaded
+                if (!includeMenuDetails && menus.Count == 0)
+                {
+                    menus = await _context.DailyMenus
+                        .Where(m => m.Date >= rangeStart && m.Date <= rangeEnd)
+                        .OrderBy(m => m.Date)
+                        .ToListAsync();
+                }
+
+                // Calculate fixed charges
                 estimatedFixedCharges = menus.Sum(m => m.DailyFixedCharge);
                 if (menus.Count < totalDays)
                 {
                     estimatedFixedCharges += (totalDays - menus.Count) * 20; // Default fixed charge
+                }
+
+                // Calculate food charges for present days only
+                foreach (var attendance in attendances.Where(a => a.Status == AttendanceStatus.Present))
+                {
+                    var menu = menus.FirstOrDefault(m => m.Date == attendance.Date);
+                    if (menu != null)
+                    {
+                        estimatedFoodCharges += menu.Meals.Sum(m => m.Price);
+                    }
                 }
             }
 
@@ -215,12 +236,6 @@ namespace Mess_Management_System_Backend.Services
                     
                     var dailyFoodCost = menu?.Meals.Sum(m => m.Price) ?? 0;
                     var dailyFixedCharge = menu?.DailyFixedCharge ?? 20;
-                    
-                    // Add to food charges only if present
-                    if (attendance?.Status == AttendanceStatus.Present)
-                    {
-                        estimatedFoodCharges += dailyFoodCost;
-                    }
 
                     dailySummaries.Add(new
                     {

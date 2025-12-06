@@ -16,14 +16,14 @@ namespace Mess_Management_System_Backend.Models
     {
         public int Id { get; set; }
         
-        [Required, MaxLength(100)]
-        public string FirstName { get; set; } = string.Empty;
+        [MaxLength(100)]
+        public string? FirstName { get; set; }
         
-        [Required, MaxLength(100)]
-        public string LastName { get; set; } = string.Empty;
+        [MaxLength(100)]
+        public string? LastName { get; set; }
         
-        [Required, EmailAddress]
-        public string Email { get; set; } = string.Empty;
+        [EmailAddress]
+        public string? Email { get; set; }
         
         // This is stored in database but NEVER sent to client
         [JsonIgnore]
@@ -34,10 +34,9 @@ namespace Mess_Management_System_Backend.Models
         [NotMapped] // Not stored in database
         public string? Password { get; set; }
         
-        [Required]
-        public UserRole Role { get; set; } = UserRole.Student;
+        public UserRole? Role { get; set; }
         
-        public bool IsActive { get; set; } = true;
+        public bool? IsActive { get; set; }
         
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         

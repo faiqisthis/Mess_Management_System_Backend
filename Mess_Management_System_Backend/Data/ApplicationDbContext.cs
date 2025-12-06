@@ -21,6 +21,31 @@ namespace Mess_Management_System_Backend.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            // User: Configure required fields that must NOT be NULL in database
+            modelBuilder.Entity<User>()
+                .Property(u => u.FirstName)
+                .IsRequired();
+
+            modelBuilder.Entity<User>()
+                .Property(u => u.LastName)
+                .IsRequired();
+
+            modelBuilder.Entity<User>()
+                .Property(u => u.Email)
+                .IsRequired();
+
+            modelBuilder.Entity<User>()
+                .Property(u => u.Role)
+                .IsRequired();
+
+            modelBuilder.Entity<User>()
+                .Property(u => u.IsActive)
+                .IsRequired();
+
+            modelBuilder.Entity<User>()
+                .Property(u => u.PasswordHash)
+                .IsRequired();
+
             // User: Unique index on RollNumber (for students who have one)
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.RollNumber)

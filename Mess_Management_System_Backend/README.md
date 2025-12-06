@@ -113,20 +113,37 @@ API will be available at:
 
 ### **5. Test the API**
 
+#### Register a New User
+```http
+POST /api/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Test",
+  "lastName": "User",
+  "email": "test@example.com",
+  "password": "Test@123",
+  "role": 0,
+  "rollNumber": "CS2024001",
+  "roomNumber": "A-101",
+  "contactNumber": "+1234567890"
+}
+```
+
 #### Login
 ```http
 POST /api/auth/login
 Content-Type: application/json
 
 {
-  "email": "admin@example.com",
-  "password": "Admin@123"
+  "email": "test@example.com",
+  "password": "Test@123"
 }
 ```
 
 #### Use the Token
 ```http
-GET /api/users
+GET /api/users/1
 Authorization: Bearer <your-token-here>
 ```
 
@@ -160,17 +177,144 @@ Content-Type: application/json
 
 **Roles:** `0 = Student, 1 = Teacher, 2 = Admin`
 
+**Response (Success - 201 Created):**
+```json
+{
+  "message": "User registered successfully",
+  "userId": 5,
+  "email": "john@example.com",
+  "role": "Student"
+}
+```
+
+**Response (Error - 400 Bad Request):**
+```json
+{
+  "message": "Email already exists."
+}
+```
+
+**Validation:**
+- ? Email must be unique
+- ? Roll number must be unique (if provided)
+- ? Password is required (minimum 8 characters recommended)
+- ? Email format validation
+
+#### **Login**
+```http
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "email": "john@example.com",
+  "password": "Password123"
+}
+```
+
+**Response (Success - 200 OK):**
+```json
+{
+  "userId": 5,
+  "email": "john@example.com",
+  "role": "Student",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+**Response (Error - 401 Unauthorized):**
+```json
+{
+  "message": "Invalid email or password"
+}
+```
+
 ---
 
 ### **User Management Endpoints**
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
+| `/api/users` | POST | Admin | Create new user |
 | `/api/users` | GET | Admin | Get all users |
 | `/api/users/{id}` | GET | Authenticated | Get user by ID |
-| `/api/users/{id}` | PUT | Admin | Update user |
+| `/api/users/{id}` | PUT | Admin | Update user (supports partial updates) |
 | `/api/users/{id}/change-password` | POST | User/Admin | Change password |
 | `/api/users/{id}` | DELETE | Admin | Delete user |
+
+#### **Create User (Admin Only)**
+```http
+POST /api/users
+Authorization: Bearer <admin-token>
+
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john@example.com",
+  "password": "Password123",
+  "role": 0,
+  "rollNumber": "CS2024001",
+  "roomNumber": "A-101",
+  "contactNumber": "+1234567890"
+}
+```
+
+**Required Fields:** `firstName`, `lastName`, `email`, `password`
+
+#### **Update User (Admin Only - Partial Updates Supported)** ?
+```http
+PUT /api/users/5
+Authorization: Bearer <admin-token>
+
+{
+  "lastName": "Smith"
+}
+```
+
+**? Partial Update Support:**
+- You can update **any combination** of fields
+- Only fields present in the request will be updated
+- Missing fields will **not** be changed
+- No required fields - update only what you need!
+
+**Examples:**
+
+Update only last name:
+```json
+{
+  "lastName": "Smith"
+}
+```
+
+Update email and room number:
+```json
+{
+  "email": "newemail@example.com",
+  "roomNumber": "B-202"
+}
+```
+
+Update multiple fields:
+```json
+{
+  "firstName": "Jane",
+  "lastName": "Smith",
+  "email": "jane.smith@example.com",
+  "role": 1,
+  "isActive": true
+}
+```
+
+**Available Fields for Update:**
+- `firstName` - User's first name
+- `lastName` - User's last name
+- `email` - User's email (must be unique)
+- `role` - User role (0=Student, 1=Teacher, 2=Admin)
+- `isActive` - Account active status
+- `rollNumber` - Student roll number (must be unique if provided)
+- `roomNumber` - Room number
+- `contactNumber` - Contact number
+
+**Note:** Password updates must use the `/change-password` endpoint.
 
 ---
 
