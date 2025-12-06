@@ -103,30 +103,43 @@ namespace Mess_Management_System_Backend.Controllers
         }
 
         /// <summary>
-        /// Get attendance for a specific user
+        /// Get attendance for a specific user with flexible filtering options
+        /// 
+        /// Query Parameters:
+        /// - startDate & endDate: Filter by date range
+        /// - year & month: Filter by specific month (alternative to date range)
+        /// - includeSummary: Include summary statistics (total days, present/absent counts, estimated costs)
+        /// - includeMenuDetails: Include daily menu details and cost breakdown
+        /// 
+        /// Examples:
+        /// - Simple list: /api/attendance/user/5?startDate=2024-01-01&endDate=2024-01-31
+        /// - With summary: /api/attendance/user/5?year=2024&month=1&includeSummary=true
+        /// - Full details: /api/attendance/user/5?year=2024&month=1&includeSummary=true&includeMenuDetails=true
+        /// 
         /// Users can view their own, Admin/Teacher can view anyone's
         /// </summary>
         [HttpGet("user/{userId:int}")]
         public async Task<IActionResult> GetUserAttendance(
             int userId,
             [FromQuery] DateTime? startDate = null,
-            [FromQuery] DateTime? endDate = null)
-        {
-            var attendances = await _attendanceService.GetUserAttendanceAsync(userId, startDate, endDate);
-            return Ok(attendances);
-        }
-
-        /// <summary>
-        /// Get user's monthly attendance with menu details and estimated cost (for students to estimate their bill)
-        /// Students can view their own, Admin/Teacher can view anyone's
-        /// </summary>
-        [HttpGet("user/{userId:int}/summary/{year:int}/{month:int}")]
-        public async Task<IActionResult> GetUserAttendanceWithMenu(int userId, int year, int month)
+            [FromQuery] DateTime? endDate = null,
+            [FromQuery] int? year = null,
+            [FromQuery] int? month = null,
+            [FromQuery] bool includeSummary = false,
+            [FromQuery] bool includeMenuDetails = false)
         {
             try
             {
-                var summary = await _attendanceService.GetUserAttendanceWithMenuAsync(userId, year, month);
-                return Ok(summary);
+                var result = await _attendanceService.GetUserAttendanceAsync(
+                    userId, 
+                    startDate, 
+                    endDate, 
+                    year, 
+                    month, 
+                    includeSummary, 
+                    includeMenuDetails
+                );
+                return Ok(result);
             }
             catch (InvalidOperationException ex)
             {

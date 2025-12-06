@@ -126,20 +126,161 @@ namespace Mess_Management_System_Backend.Services
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<Attendance>> GetUserAttendanceAsync(int userId, DateTime? startDate = null, DateTime? endDate = null)
+        public async Task<object> GetUserAttendanceAsync(
+            int userId, 
+            DateTime? startDate = null, 
+            DateTime? endDate = null,
+            int? year = null,
+            int? month = null,
+            bool includeSummary = false,
+            bool includeMenuDetails = false)
         {
-            var query = _context.Attendances
-                .Where(a => a.UserId == userId);
+            // Determine date range from either explicit dates or year/month
+            DateTime rangeStart;
+            DateTime rangeEnd;
 
-            if (startDate.HasValue)
-                query = query.Where(a => a.Date >= startDate.Value.Date);
+            if (year.HasValue && month.HasValue)
+            {
+                // Validate month
+                if (month < 1 || month > 12)
+                    throw new InvalidOperationException("Month must be between 1 and 12.");
 
-            if (endDate.HasValue)
-                query = query.Where(a => a.Date <= endDate.Value.Date);
+                rangeStart = new DateTime(year.Value, month.Value, 1);
+                rangeEnd = rangeStart.AddMonths(1).AddDays(-1);
+            }
+            else if (startDate.HasValue || endDate.HasValue)
+            {
+                rangeStart = startDate?.Date ?? DateTime.MinValue;
+                rangeEnd = endDate?.Date ?? DateTime.MaxValue;
+            }
+            else
+            {
+                // No filters provided - return simple list
+                var allAttendances = await _context.Attendances
+                    .Where(a => a.UserId == userId)
+                    .OrderBy(a => a.Date)
+                    .ToListAsync();
+                
+                return allAttendances;
+            }
 
-            return await query
+            // Get attendance records for the date range
+            var attendances = await _context.Attendances
+                .Where(a => a.UserId == userId && a.Date >= rangeStart && a.Date <= rangeEnd)
                 .OrderBy(a => a.Date)
                 .ToListAsync();
+
+            // If no summary or menu details requested, return simple list
+            if (!includeSummary && !includeMenuDetails)
+            {
+                return attendances;
+            }
+
+            // Get menus for the date range if menu details are requested
+            List<DailyMenu> menus = new List<DailyMenu>();
+            if (includeMenuDetails)
+            {
+                menus = await _context.DailyMenus
+                    .Where(m => m.Date >= rangeStart && m.Date <= rangeEnd)
+                    .OrderBy(m => m.Date)
+                    .ToListAsync();
+            }
+
+            // Calculate summary statistics
+            var totalDays = (rangeEnd - rangeStart).Days + 1;
+            var presentDays = attendances.Count(a => a.Status == AttendanceStatus.Present);
+            var absentDays = attendances.Count(a => a.Status == AttendanceStatus.Absent);
+            var daysWithoutAttendance = totalDays - attendances.Count;
+
+            decimal estimatedFixedCharges = 0;
+            decimal estimatedFoodCharges = 0;
+
+            if (includeMenuDetails)
+            {
+                estimatedFixedCharges = menus.Sum(m => m.DailyFixedCharge);
+                if (menus.Count < totalDays)
+                {
+                    estimatedFixedCharges += (totalDays - menus.Count) * 20; // Default fixed charge
+                }
+            }
+
+            // Build daily summaries if menu details are requested
+            var dailySummaries = new List<object>();
+            if (includeMenuDetails)
+            {
+                for (var date = rangeStart; date <= rangeEnd; date = date.AddDays(1))
+                {
+                    var attendance = attendances.FirstOrDefault(a => a.Date == date);
+                    var menu = menus.FirstOrDefault(m => m.Date == date);
+                    
+                    var dailyFoodCost = menu?.Meals.Sum(m => m.Price) ?? 0;
+                    var dailyFixedCharge = menu?.DailyFixedCharge ?? 20;
+                    
+                    // Add to food charges only if present
+                    if (attendance?.Status == AttendanceStatus.Present)
+                    {
+                        estimatedFoodCharges += dailyFoodCost;
+                    }
+
+                    dailySummaries.Add(new
+                    {
+                        date = date.ToString("yyyy-MM-dd"),
+                        status = attendance?.Status.ToString() ?? "NotMarked",
+                        meals = menu?.Meals ?? new List<MealItem>(),
+                        dailyFixedCharge = dailyFixedCharge,
+                        dailyFoodCost = dailyFoodCost,
+                        dailyTotalCost = attendance?.Status == AttendanceStatus.Present 
+                            ? dailyFixedCharge + dailyFoodCost 
+                            : dailyFixedCharge,
+                        menuAvailable = menu != null
+                    });
+                }
+            }
+
+            // Build response based on what was requested
+            var response = new Dictionary<string, object>
+            {
+                { "userId", userId },
+                { "startDate", rangeStart.ToString("yyyy-MM-dd") },
+                { "endDate", rangeEnd.ToString("yyyy-MM-dd") }
+            };
+
+            if (year.HasValue && month.HasValue)
+            {
+                response.Add("year", year.Value);
+                response.Add("month", month.Value);
+                response.Add("monthName", rangeStart.ToString("MMMM yyyy"));
+            }
+
+            if (includeMenuDetails)
+            {
+                response.Add("dailySummaries", dailySummaries);
+            }
+            else
+            {
+                response.Add("attendances", attendances);
+            }
+
+            if (includeSummary)
+            {
+                response.Add("summary", new
+                {
+                    totalDays = totalDays,
+                    presentDays = presentDays,
+                    absentDays = absentDays,
+                    daysWithoutAttendance = daysWithoutAttendance,
+                    estimatedFixedCharges = estimatedFixedCharges,
+                    estimatedFoodCharges = estimatedFoodCharges,
+                    estimatedTotalCost = estimatedFixedCharges + estimatedFoodCharges
+                });
+            }
+
+            if (includeMenuDetails)
+            {
+                response.Add("note", "This is an estimated cost based on your attendance. Actual bill may vary and will be generated by admin at the start of next month.");
+            }
+
+            return response;
         }
 
         public async Task<Attendance?> GetAttendanceByUserAndDateAsync(int userId, DateTime date)
@@ -158,93 +299,6 @@ namespace Mess_Management_System_Backend.Services
             _context.Attendances.Remove(attendance);
             await _context.SaveChangesAsync();
             return true;
-        }
-
-        public async Task<object> GetUserAttendanceWithMenuAsync(int userId, int year, int month)
-        {
-            // Validate month and year
-            if (month < 1 || month > 12)
-                throw new InvalidOperationException("Month must be between 1 and 12.");
-
-            // Calculate start and end dates for the month
-            var startDate = new DateTime(year, month, 1);
-            var endDate = startDate.AddMonths(1).AddDays(-1);
-
-            // Get user attendance for the month
-            var attendances = await _context.Attendances
-                .Where(a => a.UserId == userId && a.Date >= startDate && a.Date <= endDate)
-                .OrderBy(a => a.Date)
-                .ToListAsync();
-
-            // Get all menus for the month
-            var menus = await _context.DailyMenus
-                .Where(m => m.Date >= startDate && m.Date <= endDate)
-                .OrderBy(m => m.Date)
-                .ToListAsync();
-
-            // Calculate totals
-            var totalDays = (endDate - startDate).Days + 1;
-            var presentDays = attendances.Count(a => a.Status == AttendanceStatus.Present);
-            var absentDays = attendances.Count(a => a.Status == AttendanceStatus.Absent);
-            var daysWithoutAttendance = totalDays - attendances.Count;
-
-            decimal estimatedFixedCharges = menus.Sum(m => m.DailyFixedCharge);
-            if (menus.Count < totalDays)
-            {
-                estimatedFixedCharges += (totalDays - menus.Count) * 20; // Default fixed charge
-            }
-
-            decimal estimatedFoodCharges = 0;
-            
-            // Build daily summary
-            var dailySummaries = new List<object>();
-            for (var date = startDate; date <= endDate; date = date.AddDays(1))
-            {
-                var attendance = attendances.FirstOrDefault(a => a.Date == date);
-                var menu = menus.FirstOrDefault(m => m.Date == date);
-                
-                var dailyFoodCost = menu?.Meals.Sum(m => m.Price) ?? 0;
-                var dailyFixedCharge = menu?.DailyFixedCharge ?? 20;
-                
-                // Add to food charges only if present
-                if (attendance?.Status == AttendanceStatus.Present)
-                {
-                    estimatedFoodCharges += dailyFoodCost;
-                }
-
-                dailySummaries.Add(new
-                {
-                    date = date.ToString("yyyy-MM-dd"),
-                    status = attendance?.Status.ToString() ?? "NotMarked",
-                    meals = menu?.Meals ?? new List<MealItem>(),
-                    dailyFixedCharge = dailyFixedCharge,
-                    dailyFoodCost = dailyFoodCost,
-                    dailyTotalCost = attendance?.Status == AttendanceStatus.Present 
-                        ? dailyFixedCharge + dailyFoodCost 
-                        : dailyFixedCharge,
-                    menuAvailable = menu != null
-                });
-            }
-
-            return new
-            {
-                userId = userId,
-                year = year,
-                month = month,
-                monthName = startDate.ToString("MMMM yyyy"),
-                dailySummaries = dailySummaries,
-                summary = new
-                {
-                    totalDays = totalDays,
-                    presentDays = presentDays,
-                    absentDays = absentDays,
-                    daysWithoutAttendance = daysWithoutAttendance,
-                    estimatedFixedCharges = estimatedFixedCharges,
-                    estimatedFoodCharges = estimatedFoodCharges,
-                    estimatedTotalCost = estimatedFixedCharges + estimatedFoodCharges
-                },
-                note = "This is an estimated cost based on your attendance. Actual bill may vary and will be generated by admin at the start of next month."
-            };
         }
     }
 }

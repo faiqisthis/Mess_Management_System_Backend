@@ -8,14 +8,22 @@ namespace Mess_Management_System_Backend.Services
         Task<IEnumerable<Attendance>> MarkBulkAttendanceAsync(DateTime date, List<UserAttendanceRecord> records);
         Task<Attendance?> UpdateAttendanceAsync(int attendanceId, AttendanceStatus status);
         Task<IEnumerable<Attendance>> GetAttendanceByDateAsync(DateTime date);
-        Task<IEnumerable<Attendance>> GetUserAttendanceAsync(int userId, DateTime? startDate = null, DateTime? endDate = null);
         Task<Attendance?> GetAttendanceByUserAndDateAsync(int userId, DateTime date);
         Task<bool> DeleteAttendanceAsync(int attendanceId);
 
         /// <summary>
-        /// Get user attendance with menu details for a specific month (for students to estimate their bill)
+        /// Get user attendance with flexible filtering and optional detailed summary
+        /// Supports both date range (startDate/endDate) and month-based (year/month) queries
         /// </summary>
-        Task<object> GetUserAttendanceWithMenuAsync(int userId, int year, int month);
+        Task<object> GetUserAttendanceAsync(
+            int userId, 
+            DateTime? startDate = null, 
+            DateTime? endDate = null,
+            int? year = null,
+            int? month = null,
+            bool includeSummary = false,
+            bool includeMenuDetails = false
+        );
     }
 
     public class UserAttendanceRecord

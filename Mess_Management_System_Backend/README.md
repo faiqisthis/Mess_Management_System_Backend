@@ -182,8 +182,8 @@ Content-Type: application/json
 | `/api/attendance/bulk` | POST | Admin/Teacher | **Mark multiple attendances** |
 | `/api/attendance/{id}` | PUT | Admin/Teacher | Update attendance |
 | `/api/attendance/date/{date}` | GET | Admin/Teacher | Get all attendance for date |
-| `/api/attendance/user/{userId}` | GET | Authenticated | Get user attendance |
-| `/api/attendance/user/{userId}/summary/{year}/{month}` | GET | Authenticated | **Get monthly summary with menu & costs** |
+| `/api/attendance/user/{userId}` | GET | Authenticated | **Get user attendance with flexible filters** |
+| `/api/attendance/{id}` | DELETE | Admin | Delete attendance |
 
 #### **Mark Single Attendance**
 ```http
@@ -199,7 +199,7 @@ Authorization: Bearer <token>
 
 **Status:** `0 = Absent, 1 = Present`
 
-#### **Mark Bulk Attendance** ? NEW
+#### **Mark Bulk Attendance** ?? NEW
 ```http
 POST /api/attendance/bulk
 Authorization: Bearer <token>
@@ -221,9 +221,45 @@ Authorization: Bearer <token>
 - ? Transactional (all succeed or all fail)
 - ? Perfect for marking entire class at once
 
-#### **Get Monthly Attendance Summary** ?? NEW
+#### **Get User Attendance (Flexible Filters)** ?? IMPROVED
+
+This **single endpoint** supports multiple query modes through query parameters:
+
+**Query Parameters:**
+- `startDate` & `endDate` - Filter by date range
+- `year` & `month` - Filter by specific month (alternative to date range)
+- `includeSummary` - Include summary statistics (boolean)
+- `includeMenuDetails` - Include daily menu details and cost breakdown (boolean)
+
+**Example 1: Simple Attendance List**
 ```http
-GET /api/attendance/user/5/summary/2024/12
+GET /api/attendance/user/5?startDate=2024-01-01&endDate=2024-01-31
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "userId": 5,
+    "date": "2024-01-01T00:00:00Z",
+    "status": 1,
+    "createdAt": "2024-01-01T08:00:00Z"
+  },
+  {
+    "id": 2,
+    "userId": 5,
+    "date": "2024-01-02T00:00:00Z",
+    "status": 0,
+    "createdAt": "2024-01-02T08:00:00Z"
+  }
+]
+```
+
+**Example 2: Monthly Attendance with Summary**
+```http
+GET /api/attendance/user/5?year=2024&month=12&includeSummary=true
 Authorization: Bearer <token>
 ```
 
@@ -231,6 +267,43 @@ Authorization: Bearer <token>
 ```json
 {
   "userId": 5,
+  "startDate": "2024-12-01",
+  "endDate": "2024-12-31",
+  "year": 2024,
+  "month": 12,
+  "monthName": "December 2024",
+  "attendances": [
+    {
+      "id": 1,
+      "userId": 5,
+      "date": "2024-12-01T00:00:00Z",
+      "status": 1
+    }
+  ],
+  "summary": {
+    "totalDays": 31,
+    "presentDays": 25,
+    "absentDays": 5,
+    "daysWithoutAttendance": 1,
+    "estimatedFixedCharges": 620,
+    "estimatedFoodCharges": 7500,
+    "estimatedTotalCost": 8120
+  }
+}
+```
+
+**Example 3: Full Details with Menu & Cost Breakdown** ?? **BEST FOR STUDENTS**
+```http
+GET /api/attendance/user/5?year=2024&month=12&includeSummary=true&includeMenuDetails=true
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "userId": 5,
+  "startDate": "2024-12-01",
+  "endDate": "2024-12-31",
   "year": 2024,
   "month": 12,
   "monthName": "December 2024",
@@ -281,9 +354,11 @@ Authorization: Bearer <token>
 ```
 
 **Benefits:**
-- ? Students can see daily attendance with menu details
-- ? Shows what meals were served and their costs
-- ? Provides estimated monthly bill
+- ? **One flexible endpoint** instead of multiple separate endpoints
+- ? **RESTful design** - use query parameters for filtering
+- ? **Backward compatible** - simple queries work without breaking changes
+- ? **Granular control** - clients choose what data they need
+- ? Students can estimate their bill before official generation
 - ? Clear breakdown: fixed charges vs food charges
 - ? No surprises when official bill is generated
 
@@ -539,7 +614,7 @@ Mess_Management_System_Backend/
 ?   ??? IAttendanceService.cs / AttendanceService.cs
 ?   ??? IDailyMenuService.cs / DailyMenuService.cs
 ?   ??? IBillingService.cs / BillingService.cs
-?   ??? IJwtService.cs / JwtService.cs
+?   ??? IJwtService.js / JwtService.cs
 ??? Migrations/
 ??? Program.cs
 ```
@@ -686,9 +761,9 @@ Authorization: Bearer <teacher-token>
 }
 ```
 
-### **3. Student Checks Estimated Cost (Anytime During Month)** ?? NEW
+### **3. Student Checks Estimated Cost (Anytime During Month)** ?? IMPROVED
 ```http
-GET /api/attendance/user/1/summary/2024/12
+GET /api/attendance/user/1?year=2024&month=12&includeSummary=true&includeMenuDetails=true
 Authorization: Bearer <student-token>
 ```
 
@@ -773,93 +848,15 @@ Or edit `Properties/launchSettings.json`
 
 ## ?? Recent Updates
 
+### **v2.2 (December 2024)** ?? LATEST
+- ? **Consolidated attendance API** - Single flexible endpoint with query parameters
+- ? **RESTful design improvement** - `/api/attendance/user/{userId}` supports all filtering needs
+- ? **Reduced API surface** - One endpoint replaces two separate endpoints
+- ? **Backward compatible** - Simple queries still work without breaking changes
+- ? **Query parameter filters** - `startDate`, `endDate`, `year`, `month`, `includeSummary`, `includeMenuDetails`
+
 ### **v2.1 (December 2024)** ?? NEW
-- ? **Monthly bill generation restriction** - bills only for previous months
-- ? **Student attendance summary** - view daily attendance with menu & estimated costs
-- ? **Improved billing workflow** - clear separation between estimation and official billing
-- ? **Duplicate bill prevention** - automatic validation
-
-### **v2.0 (December 2024)**
-- ? **Bulk attendance marking** - mark entire class at once
-- ? **JSON-based meal structure** - flexible array format
-- ? User bill generation
-- ? Improved authorization and security
-- ? Comprehensive API documentation
-
-### **Key Improvements**
-1. **Billing System:** Month-based generation with validation (no current month billing)
-2. **Student Transparency:** Can view estimated costs before official bill
-3. **Menu System:** Changed from separate fields to JSON array
-4. **Attendance:** Added bulk operations and summary endpoint
-5. **Security:** Enhanced middleware pipeline with ownership validation
-
----
-
-## ?? Command Reference
-
-### **Development Commands**
-```bash
-# Build
-dotnet build
-
-# Run
-dotnet run
-
-# Run with watch (auto-reload)
-dotnet watch run
-
-# Clean
-dotnet clean
-```
-
-### **Database Commands**
-```bash
-# Create migration
-dotnet ef migrations add MigrationName
-
-# Apply migrations
-dotnet ef database update
-
-# List migrations
-dotnet ef migrations list
-
-# Rollback
-dotnet ef database update PreviousMigrationName
-
-# Remove last migration
-dotnet ef migrations remove
-
-# Drop database
-dotnet ef database drop --force
-
-# Generate SQL script
-dotnet ef migrations script
-```
-
----
-
-## ?? License
-
-MIT License
-
----
-
-## ?? Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to branch (`git push origin feature/AmazingFeature`)
-5. Open Pull Request
-
----
-
-## ?? Contact
-
-**Repository:** [https://github.com/faiqisthis/Mess_Management_System_Backend](https://github.com/faiqisthis/Mess_Management_System_Backend)
-
----
-
-**Built with ?? using .NET 8**
-
-**Status:** ?? Production Ready
+- ?? **Monthly bill generation restriction** - bills only for previous months
+- ?? **Student attendance summary** - view daily attendance with menu & estimated costs
+- ?? **Improved billing workflow** - clear separation between estimation and official billing
+- ?? **Duplicate bill prevention** - automatic validation
