@@ -18,7 +18,8 @@ namespace Mess_Management_System_Backend.Controllers
         }
 
         /// <summary>
-        /// Generate a bill for a user for a specific period (Admin only)
+        /// Generate a monthly bill for a user (Admin only)
+        /// Bills can only be generated for previous months, not the current month
         /// </summary>
         [HttpPost("generate")]
         [Authorize(Roles = "Admin")]
@@ -26,10 +27,10 @@ namespace Mess_Management_System_Backend.Controllers
         {
             try
             {
-                var bill = await _billingService.GenerateCurrentBillAsync(
+                var bill = await _billingService.GenerateMonthlyBillAsync(
                     request.UserId,
-                    request.StartDate,
-                    request.EndDate
+                    request.Year,
+                    request.Month
                 );
                 return CreatedAtAction(nameof(GetBillById), new { id = bill.Id }, bill);
             }
@@ -110,7 +111,7 @@ namespace Mess_Management_System_Backend.Controllers
     public class GenerateBillRequest
     {
         public int UserId { get; set; }
-        public DateTime StartDate { get; set; }
-        public DateTime EndDate { get; set; }
+        public int Year { get; set; }
+        public int Month { get; set; }
     }
 }

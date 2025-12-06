@@ -117,6 +117,24 @@ namespace Mess_Management_System_Backend.Controllers
         }
 
         /// <summary>
+        /// Get user's monthly attendance with menu details and estimated cost (for students to estimate their bill)
+        /// Students can view their own, Admin/Teacher can view anyone's
+        /// </summary>
+        [HttpGet("user/{userId:int}/summary/{year:int}/{month:int}")]
+        public async Task<IActionResult> GetUserAttendanceWithMenu(int userId, int year, int month)
+        {
+            try
+            {
+                var summary = await _attendanceService.GetUserAttendanceWithMenuAsync(userId, year, month);
+                return Ok(summary);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Delete attendance (Admin only)
         /// </summary>
         [HttpDelete("{id:int}")]

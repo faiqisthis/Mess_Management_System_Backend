@@ -11,6 +11,11 @@ namespace Mess_Management_System_Backend.Services
         Task<IEnumerable<Attendance>> GetUserAttendanceAsync(int userId, DateTime? startDate = null, DateTime? endDate = null);
         Task<Attendance?> GetAttendanceByUserAndDateAsync(int userId, DateTime date);
         Task<bool> DeleteAttendanceAsync(int attendanceId);
+
+        /// <summary>
+        /// Get user attendance with menu details for a specific month (for students to estimate their bill)
+        /// </summary>
+        Task<object> GetUserAttendanceWithMenuAsync(int userId, int year, int month);
     }
 
     public class UserAttendanceRecord

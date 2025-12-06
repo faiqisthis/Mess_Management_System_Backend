@@ -13,29 +13,53 @@ namespace Mess_Management_System_Backend.Services
             _context = context;
         }
 
-        public async Task<UserBill> GenerateCurrentBillAsync(int userId, DateTime startDate, DateTime endDate)
+        public async Task<UserBill> GenerateMonthlyBillAsync(int userId, int year, int month)
         {
-            // Normalize dates
-            var normalizedStart = startDate.Date;
-            var normalizedEnd = endDate.Date;
+            // Validate that the requested month is not the current month
+            var now = DateTime.UtcNow;
+            if (year == now.Year && month >= now.Month)
+            {
+                throw new InvalidOperationException("Bills can only be generated for previous months, not the current month.");
+            }
+
+            // Validate month and year
+            if (month < 1 || month > 12)
+                throw new InvalidOperationException("Month must be between 1 and 12.");
+
+            if (year < 2000 || year > now.Year)
+                throw new InvalidOperationException($"Year must be between 2000 and {now.Year}.");
 
             // Check if user exists
             var user = await _context.Users.FindAsync(userId);
             if (user == null)
                 throw new InvalidOperationException($"User with ID {userId} not found.");
 
-            // Get all menus in the date range
+            // Check if bill already exists for this month
+            var existingBill = await _context.UserBills
+                .Where(b => b.UserId == userId && 
+                           b.StartDate.Year == year && 
+                           b.StartDate.Month == month)
+                .FirstOrDefaultAsync();
+
+            if (existingBill != null)
+                throw new InvalidOperationException($"Bill already exists for {new DateTime(year, month, 1):MMMM yyyy}.");
+
+            // Calculate start and end dates for the month
+            var startDate = new DateTime(year, month, 1);
+            var endDate = startDate.AddMonths(1).AddDays(-1);
+
+            // Get all menus in the month
             var menus = await _context.DailyMenus
-                .Where(m => m.Date >= normalizedStart && m.Date <= normalizedEnd)
+                .Where(m => m.Date >= startDate && m.Date <= endDate)
                 .ToListAsync();
 
-            // Get user attendance in the date range
+            // Get user attendance in the month
             var attendances = await _context.Attendances
-                .Where(a => a.UserId == userId && a.Date >= normalizedStart && a.Date <= normalizedEnd)
+                .Where(a => a.UserId == userId && a.Date >= startDate && a.Date <= endDate)
                 .ToListAsync();
 
-            // Calculate total days in period
-            var totalDays = (normalizedEnd - normalizedStart).Days + 1;
+            // Calculate total days in month
+            var totalDays = (endDate - startDate).Days + 1;
 
             // Calculate fixed charges (tea + water for ALL days)
             decimal totalFixedCharges = 0;
@@ -72,8 +96,8 @@ namespace Mess_Management_System_Backend.Services
             var bill = new UserBill
             {
                 UserId = userId,
-                StartDate = normalizedStart,
-                EndDate = normalizedEnd,
+                StartDate = startDate,
+                EndDate = endDate,
                 TotalFixedCharges = totalFixedCharges,
                 TotalFoodCharges = totalFoodCharges,
                 TotalAmount = totalFixedCharges + totalFoodCharges,
