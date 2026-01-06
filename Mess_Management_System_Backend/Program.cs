@@ -48,7 +48,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend",
         policy => policy
-            .WithOrigins("http://localhost:3000", "http://localhost:7259", "https://localhost:7259", "https://mess-management-system-frontend.vercel.app/")
+            .WithOrigins("http://localhost:3000", "http://localhost:7259", "https://localhost:7259", "https://mess-management-system-frontend.vercel.app")
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials());
