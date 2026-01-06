@@ -12,7 +12,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Database
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Services
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
@@ -47,7 +48,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend",
         policy => policy
-            .WithOrigins("http://localhost:3000", "http://localhost:7259", "https://localhost:7259")
+            .WithOrigins("http://localhost:3000", "http://localhost:7259", "https://localhost:7259", "https://mess-management-system-frontend.vercel.app/")
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials());
