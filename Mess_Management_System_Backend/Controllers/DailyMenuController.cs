@@ -52,6 +52,7 @@ namespace Mess_Management_System_Backend.Controllers
         /// Get menu by ID (Anyone can view)
         /// </summary>
         [HttpGet("{id:int}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetMenuById(int id)
         {
             var menu = await _menuService.GetMenuByIdAsync(id);
@@ -65,6 +66,7 @@ namespace Mess_Management_System_Backend.Controllers
         /// Get menu for a specific date (Anyone can view)
         /// </summary>
         [HttpGet("date/{date}")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetMenuByDate(DateTime date)
         {
             var menu = await _menuService.GetMenuByDateAsync(date);
@@ -78,6 +80,7 @@ namespace Mess_Management_System_Backend.Controllers
         /// Get menus for a date range (Anyone can view)
         /// </summary>
         [HttpGet("range")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetMenusInRange(
             [FromQuery] DateTime startDate,
             [FromQuery] DateTime endDate)

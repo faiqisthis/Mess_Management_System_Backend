@@ -1,5 +1,6 @@
 using Mess_Management_System_Backend.Models;
 using Mess_Management_System_Backend.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Mess_Management_System_Backend.Controllers
@@ -19,6 +20,7 @@ namespace Mess_Management_System_Backend.Controllers
         /// Register a new user
         /// </summary>
         [HttpPost("register")]
+        [AllowAnonymous]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
             try
@@ -59,6 +61,7 @@ namespace Mess_Management_System_Backend.Controllers
         /// Login with email and password
         /// </summary>
         [HttpPost("login")]
+        [AllowAnonymous]
         public IActionResult Login([FromBody] LoginRequest request)
         {
             var result = _userService.Authenticate(request);
