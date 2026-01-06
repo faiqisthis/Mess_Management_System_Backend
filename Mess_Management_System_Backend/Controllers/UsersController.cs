@@ -19,10 +19,23 @@ namespace Mess_Management_System_Backend.Controllers
 
         [HttpPost]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Create([FromBody] User user)
+        public async Task<IActionResult> Create([FromBody] CreateUserRequest request)
         {
             try
             {
+                var user = new User
+                {
+                    FirstName = request.FirstName,
+                    LastName = request.LastName,
+                    Email = request.Email,
+                    Password = request.Password,
+                    Role = request.Role,
+                    IsActive = request.IsActive ?? true,
+                    RollNumber = request.RollNumber,
+                    RoomNumber = request.RoomNumber,
+                    ContactNumber = request.ContactNumber
+                };
+
                 var createdUser = await _userService.CreateUserAsync(user);
                 return CreatedAtAction(nameof(GetById), new { id = createdUser.Id }, createdUser);
             }
@@ -84,5 +97,19 @@ namespace Mess_Management_System_Backend.Controllers
 
             return NoContent();
         }
+    }
+
+    // Request model for creating users
+    public class CreateUserRequest
+    {
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public UserRole? Role { get; set; }
+        public bool? IsActive { get; set; }
+        public string? RollNumber { get; set; }
+        public string? RoomNumber { get; set; }
+        public string? ContactNumber { get; set; }
     }
 }

@@ -2,6 +2,7 @@ using Mess_Management_System_Backend.Models;
 using Mess_Management_System_Backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Mess_Management_System_Backend.Controllers
 {
@@ -11,14 +12,47 @@ namespace Mess_Management_System_Backend.Controllers
     public class AttendanceController : ControllerBase
     {
         private readonly IAttendanceService _attendanceService;
+        private readonly IUserService _userService;
 
-        public AttendanceController(IAttendanceService attendanceService)
+        public AttendanceController(IAttendanceService attendanceService, IUserService userService)
         {
             _attendanceService = attendanceService;
+            _userService = userService;
+        }
+
+        /// <summary>
+        /// Get all students for marking attendance (Admin/Teacher only)
+        /// Teachers can see all students to mark their attendance
+        /// </summary>
+        [HttpGet("students")]
+        [Authorize(Roles = "Admin,Teacher")]
+        public async Task<IActionResult> GetAllStudents()
+        {
+            var allUsers = await _userService.GetAllUsersAsync();
+            
+            // Filter to get only students
+            var students = allUsers
+                .Where(u => u.Role == UserRole.Student && u.IsActive == true)
+                .Select(u => new
+                {
+                    id = u.Id,
+                    firstName = u.FirstName,
+                    lastName = u.LastName,
+                    fullName = $"{u.FirstName} {u.LastName}",
+                    email = u.Email,
+                    rollNumber = u.RollNumber,
+                    roomNumber = u.RoomNumber
+                })
+                .OrderBy(u => u.rollNumber)
+                .ToList();
+
+            return Ok(students);
         }
 
         /// <summary>
         /// Mark attendance for a single user (Admin/Teacher only)
+        /// Teachers cannot mark attendance for themselves, only for students
+        /// Admin can mark attendance for everyone
         /// </summary>
         [HttpPost]
         [Authorize(Roles = "Admin,Teacher")]
@@ -26,6 +60,31 @@ namespace Mess_Management_System_Backend.Controllers
         {
             try
             {
+                // Get current user's ID and role from JWT token
+                var currentUserIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                var currentUserRoleClaim = User.FindFirst(ClaimTypes.Role);
+                
+                if (currentUserIdClaim == null || currentUserRoleClaim == null)
+                    return Unauthorized(new { message = "Invalid token claims" });
+
+                var currentUserId = int.Parse(currentUserIdClaim.Value);
+                var currentUserRole = currentUserRoleClaim.Value;
+
+                // Teachers cannot mark attendance for themselves
+                if (currentUserRole == "Teacher" && request.UserId == currentUserId)
+                    return Forbid();
+
+                // Teachers can only mark attendance for students
+                if (currentUserRole == "Teacher")
+                {
+                    var targetUser = await _userService.GetUserByIdAsync(request.UserId);
+                    if (targetUser == null)
+                        return NotFound(new { message = $"User with ID {request.UserId} not found" });
+                    
+                    if (targetUser.Role != UserRole.Student)
+                        return Forbid();
+                }
+
                 var attendance = await _attendanceService.MarkAttendanceAsync(
                     request.UserId,
                     request.Date,
@@ -41,6 +100,8 @@ namespace Mess_Management_System_Backend.Controllers
 
         /// <summary>
         /// Mark attendance for multiple users at once (Admin/Teacher only)
+        /// Teachers can only mark attendance for students, not for themselves
+        /// Admin can mark attendance for everyone
         /// </summary>
         [HttpPost("bulk")]
         [Authorize(Roles = "Admin,Teacher")]
@@ -48,6 +109,33 @@ namespace Mess_Management_System_Backend.Controllers
         {
             try
             {
+                // Get current user's ID and role from JWT token
+                var currentUserIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                var currentUserRoleClaim = User.FindFirst(ClaimTypes.Role);
+                
+                if (currentUserIdClaim == null || currentUserRoleClaim == null)
+                    return Unauthorized(new { message = "Invalid token claims" });
+
+                var currentUserId = int.Parse(currentUserIdClaim.Value);
+                var currentUserRole = currentUserRoleClaim.Value;
+
+                // Teachers: validate they're only marking students (not themselves or other teachers)
+                if (currentUserRole == "Teacher")
+                {
+                    var userIds = request.Attendances.Select(a => a.UserId).Distinct().ToList();
+                    
+                    // Check if teacher is trying to mark their own attendance
+                    if (userIds.Contains(currentUserId))
+                        return Forbid();
+
+                    // Validate all users are students
+                    var allUsers = await _userService.GetAllUsersAsync();
+                    var targetUsers = allUsers.Where(u => userIds.Contains(u.Id)).ToList();
+                    
+                    if (targetUsers.Any(u => u.Role != UserRole.Student))
+                        return Forbid();
+                }
+
                 var attendances = await _attendanceService.MarkBulkAttendanceAsync(
                     request.Date,
                     request.Attendances
