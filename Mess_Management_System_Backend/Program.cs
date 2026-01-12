@@ -46,11 +46,13 @@ builder.Services.AddControllers();
 // CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAllOrigins",
-          policy => policy
-              .AllowAnyOrigin()
-              .AllowAnyHeader()
-              .AllowAnyMethod());
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("AllowFrontend", policy =>
+            policy.WithOrigins("https://mess-management-system-frontend.vercel.app")
+                  .AllowAnyHeader()
+                  .AllowAnyMethod());
+    });
 });
 
 var app = builder.Build();
