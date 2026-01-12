@@ -47,13 +47,37 @@ builder.Services.AddControllers();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
-        policy.WithOrigins("https://mess-management-system-frontend.vercel.app")
+        policy.WithOrigins("https://mess-management-system-frontend.vercel.app",
+          "https://mess-management-system-frontend-e1zicwyxq.vercel.app" // preview
+        )
               .AllowAnyHeader()
               .AllowAnyMethod());
 });
 
 
 var app = builder.Build();
+
+// Seed database on startup
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<ApplicationDbContext>();
+        var passwordHasher = services.GetRequiredService<IPasswordHasher<User>>();
+        
+        // Ensure database is created and migrations are applied
+        await context.Database.MigrateAsync();
+        
+        // Seed data
+        await DatabaseSeeder.SeedAsync(context, passwordHasher);
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred while seeding the database.");
+    }
+}
 
 // Middleware
 if (app.Environment.IsDevelopment())
